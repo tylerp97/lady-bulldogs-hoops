@@ -24,23 +24,36 @@ def get_schedule() -> pd.DataFrame:
     Fetch the season schedule.
 
     Returns one row per game with columns:
-      date, opponent, location, result, hld_score, opp_score, margin, record, event_id
+      date, opponent, result, hld_score, opp_score, margin, record, event_id
+
+    Page structure: Date | Time | Opponent | Result | Score(boxscore link) | Record
+    The boxscore link lives on the score cell, not the opponent cell.
     """
     html = _get_html(f"teamschedule.php?s={SEASON_ID}&t={TEAM_ID}")
     soup = BeautifulSoup(html, "lxml")
 
     rows = []
     for tr in soup.select("table tr"):
-        link = tr.find("a", href=lambda h: h and "boxscore.php" in h)
-        if not link:
-            continue
-        event_id = int(link["href"].split("e=")[-1])
         tds = tr.find_all("td")
-        if len(tds) < 7:
+        if len(tds) < 5:
             continue
 
-        result = tds[4].get_text(strip=True)
-        score_text = tds[5].get_text(strip=True)
+        # Find which cell holds the boxscore link and use its position as an anchor
+        link_idx = next(
+            (i for i, td in enumerate(tds)
+             if td.find("a", href=lambda h: h and "boxscore.php" in h)),
+            None,
+        )
+        if link_idx is None:
+            continue
+
+        link = tds[link_idx].find("a")
+        event_id = int(link["href"].split("e=")[-1])
+        score_text = tds[link_idx].get_text(strip=True)
+        result = tds[link_idx - 1].get_text(strip=True)
+        record = tds[link_idx + 1].get_text(strip=True) if link_idx + 1 < len(tds) else ""
+        opponent = tds[2].get_text(strip=True)
+
         hld_score = opp_score = None
         if "-" in score_text and result in ("W", "L"):
             # Score format is always winner-loser (e.g. W 49-36 → Highland 49, Opp 36)
@@ -49,13 +62,12 @@ def get_schedule() -> pd.DataFrame:
 
         rows.append({
             "date": tds[0].get_text(strip=True),
-            "opponent": link.get_text(strip=True),
-            "location": tds[3].get_text(strip=True),
+            "opponent": opponent,
             "result": result,
             "hld_score": hld_score,
             "opp_score": opp_score,
             "margin": (hld_score - opp_score) if hld_score is not None else None,
-            "record": tds[6].get_text(strip=True),
+            "record": record,
             "event_id": event_id,
         })
 
@@ -73,8 +85,9 @@ def get_boxscore(event_id: int) -> dict[str, pd.DataFrame]:
     html = _get_html(f"boxscore.php?s={SEASON_ID}&e={event_id}")
     dfs = pd.read_html(StringIO(html))
 
-    offense = _clean_boxscore(dfs[0]) if len(dfs) > 0 else pd.DataFrame()
-    defense = _clean_boxscore(dfs[1]) if len(dfs) > 1 else pd.DataFrame()
+    # Page tables: [0] quarter scores, [1] season records, [2] offense, [3] defense
+    offense = _clean_boxscore(dfs[2]) if len(dfs) > 2 else pd.DataFrame()
+    defense = _clean_boxscore(dfs[3]) if len(dfs) > 3 else pd.DataFrame()
     return {"offense": offense, "defense": defense}
 
 

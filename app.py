@@ -133,7 +133,6 @@ with tab_schedule:
     display = display.rename(columns={
         "date": "Date",
         "opponent": "Opponent",
-        "location": "Location",
         "result": "W/L",
         "record": "Record",
     })
@@ -146,7 +145,7 @@ with tab_schedule:
         return ""
 
     styled = (
-        display[["Date", "Opponent", "Location", "W/L", "Score", "Record"]]
+        display[["Date", "Opponent", "W/L", "Score", "Record"]]
         .style.map(_color_result, subset=["W/L"])
     )
     st.dataframe(styled, use_container_width=True, height=950)

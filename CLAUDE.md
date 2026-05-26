@@ -44,3 +44,5 @@ streamlit run app.py
 - `get_all_boxscores()` makes 33 HTTP requests — it's cached for 1 hour in the app.
 - Be a good citizen: a 0.4s delay is baked in between requests.
 - The score format on the schedule page is always winner-loser (e.g. W 49-36 means Highland 49, Opponent 36).
+- Schedule page columns: Date | Time | Opponent | Result | Score(boxscore link) | Record — the boxscore link is on the score cell, not the opponent cell.
+- Box score page has 4 tables: [0] quarter scores, [1] season records, [2] offensive stats, [3] defensive stats.
