@@ -41,6 +41,7 @@ with st.spinner("Loading schedule..."):
 games = schedule[schedule["result"].isin(["W", "L"])].copy()
 games["game_num"] = range(1, len(games) + 1)
 games["label"] = games["date"] + " " + games["result"] + " vs " + games["opponent"]
+games["hover"] = games["date"] + " · " + games["result"] + " · " + games["hld_score"].astype(str) + "-" + games["opp_score"].astype(str)
 
 tab_overview, tab_schedule, tab_players, tab_game = st.tabs(
     ["📊 Overview", "📅 Schedule", "👤 Player Stats", "🎮 Game Explorer"]
@@ -69,18 +70,22 @@ with tab_overview:
     colors = ["#2ecc71" if r == "W" else "#e74c3c" for r in games["result"]]
     fig = go.Figure()
     fig.add_bar(
-        x=games["label"],
+        x=games["opponent"],
         y=games["hld_score"],
         name="Highland",
         marker_color=colors,
+        customdata=games["hover"],
+        hovertemplate="%{customdata}<br>Highland: %{y}<extra></extra>",
     )
     fig.add_scatter(
-        x=games["label"],
+        x=games["opponent"],
         y=games["opp_score"],
         mode="lines+markers",
         name="Opponent",
         line=dict(color="rgba(150,150,150,0.8)", dash="dot", width=2),
         marker=dict(size=5),
+        customdata=games["hover"],
+        hovertemplate="%{customdata}<br>Opponent: %{y}<extra></extra>",
     )
     fig.update_layout(
         title="Points Scored by Game",
@@ -91,34 +96,6 @@ with tab_overview:
         hovermode="x unified",
     )
     st.plotly_chart(fig, use_container_width=True)
-
-    # Scoring margin with 5-game rolling average
-    games["rolling_margin"] = games["margin"].rolling(5, min_periods=1).mean()
-    fig2 = go.Figure()
-    fig2.add_bar(
-        x=games["label"],
-        y=games["margin"],
-        name="Margin",
-        marker_color=colors,
-        opacity=0.5,
-    )
-    fig2.add_scatter(
-        x=games["label"],
-        y=games["rolling_margin"],
-        mode="lines",
-        name="5-game avg",
-        line=dict(color="#2980b9", width=3),
-    )
-    fig2.add_hline(y=0, line_dash="dash", line_color="gray", line_width=1)
-    fig2.update_layout(
-        title="Scoring Margin (per game + 5-game rolling avg)",
-        xaxis_tickangle=-50,
-        height=350,
-        legend=dict(orientation="h", y=1.1),
-        margin=dict(b=140),
-        hovermode="x unified",
-    )
-    st.plotly_chart(fig2, use_container_width=True)
 
 
 # ── TAB 2: SCHEDULE ───────────────────────────────────────────────────────────
@@ -204,7 +181,7 @@ with tab_game:
         result_badge = "—"
 
     st.subheader(f"{row['date']}  ·  {row['opponent']}  ·  {result_badge}")
-    st.caption(f"Location: {row['location']}  |  Season record after game: {row['record']}")
+    st.caption(f"Season record after game: {row['record']}")
     st.divider()
 
     col_off, col_def = st.columns(2)
