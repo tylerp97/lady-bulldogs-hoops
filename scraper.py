@@ -19,6 +19,11 @@ def _get_html(path: str) -> str:
     return resp.text
 
 
+def _fix_opponent(name: str) -> str:
+    """Add a space after leading 'at' or 'vs' if one is missing (e.g. 'atPana' → 'at Pana')."""
+    return re.sub(r'^(at|vs)(?=[^\s])', r'\1 ', name)
+
+
 def get_schedule() -> pd.DataFrame:
     """
     Fetch the season schedule.
@@ -52,7 +57,7 @@ def get_schedule() -> pd.DataFrame:
         score_text = tds[link_idx].get_text(strip=True)
         result = tds[link_idx - 1].get_text(strip=True)
         record = tds[link_idx + 1].get_text(strip=True) if link_idx + 1 < len(tds) else ""
-        opponent = tds[2].get_text(strip=True)
+        opponent = _fix_opponent(tds[2].get_text(separator=" ", strip=True))
 
         hld_score = opp_score = None
         if "-" in score_text and result in ("W", "L"):
@@ -152,9 +157,8 @@ def aggregate_player_stats(off_df: pd.DataFrame, def_df: pd.DataFrame) -> pd.Dat
     if off_df.empty:
         return pd.DataFrame()
 
-    name_col = off_df.columns[1]
-
     def _sum_numeric(df: pd.DataFrame) -> pd.DataFrame:
+        name_col = df.columns[1]
         numeric = df.select_dtypes(include="number").columns.tolist()
         gp = df.groupby(name_col).size().rename("GP")
         totals = df.groupby(name_col)[numeric].sum()
